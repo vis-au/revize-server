@@ -1,0 +1,31 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+  <title>Socket-Test</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/3.1.0/socket.io.js"></script>
+</head>
+<body style="background-color:white;">
+
+  <h1 style="background-color:white;">Socket</h1>
+  <h2 id="latestId">nuthin</h2>
+  <pre id="spec"></pre>
+
+  <script type="text/javascript" charset="utf-8">
+    namespace = '/test';
+    const socket = io(namespace);
+
+    socket.emit("register", {});
+
+    socket.on('broadcast_spec', function(msg) {
+      console.log(msg)
+      document.querySelector("pre#spec").innerHTML = JSON.stringify(msg.spec, null, 2);
+      document.querySelector("#latestId").innerHTML = msg.version;
+    });
+
+    window.onbeforeunload = () => {
+      socket.emit('disconnect_request');
+    };
+
+  </script>
+</body>
+</html>
