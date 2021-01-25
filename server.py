@@ -7,7 +7,7 @@ from threading import Lock
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = "secret!"
-socket_ = SocketIO(app)
+socket_ = SocketIO(app, cors_allowed_origins="*")
 
 current_spec_version = 0
 current_spec = {}
@@ -18,14 +18,20 @@ def index():
 
 @socket_.on("register", namespace="/test")
 def register(message):
-  emit("broadcast_spec", { "spec": current_spec, "version": current_spec_version }, broadcast=True)
+  print("connected")
+  emit("broadcast_spec", { "spec": current_spec, "version": current_spec_version })
 
 
 @socket_.on("update_spec", namespace="/test")
 def update_spec(message):
   global current_spec, current_spec_version
+
+  if message['version'] != current_spec_version:
+    return
+
   current_spec_version += 1
-  current_spec = message.spec
+  current_spec = message['spec']
+  print("received new spec")
 
   emit("broadcast_spec", { "spec": current_spec, "version": current_spec_version }, broadcast=True)
 
