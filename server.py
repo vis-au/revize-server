@@ -41,6 +41,13 @@ def update_queue(message):
   queue_of_clients = message["queue"]
 
 
+@socket_.on("request_queue", namespace="/test")
+def request_queue(message):
+  global queue_of_clients
+
+  emit("send_queue", { "queue": queue_of_clients })
+
+
 @socket_.on("get_next", namespace="/test")
 def get_next(message):
   global current_spec, current_spec_version
