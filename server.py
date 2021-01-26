@@ -12,14 +12,61 @@ socket_ = SocketIO(app, cors_allowed_origins="*")
 current_spec_version = 0
 current_spec = {}
 
+queue_of_clients = []
+active_client_index = -1
+
+
 @app.route("/")
 def index():
   return render_template("index.html")
 
+
 @socket_.on("register", namespace="/test")
 def register(message):
+  global queue_of_clients
   print("connected")
+  client_id = message["id"]
+  queue_of_clients += [client_id]
+
   emit("broadcast_spec", { "spec": current_spec, "version": current_spec_version })
+
+
+@socket_.on("update_queue", namespace="/test")
+def update_queue(message):
+  global queue_of_clients
+
+  if message["queue"] is None:
+    return
+
+  queue_of_clients = message["queue"]
+
+
+@socket_.on("get_next", namespace="/test")
+def get_next(message):
+
+  this_client_id = queue_of_clients.index(message["source"])
+
+  if this_client_id == len(queue_of_clients):
+    return
+
+  next_client_id = queue_of_clients[this_client_id + 1]
+
+  print("forwarding data to next in queue...")
+  emit("send_spec", { "spec": current_spec, "version": current_spec_version, "source": message["source"], "target": next_client_id }, broadcast=True)
+
+
+@socket_.on("get_previous", namespace="/test")
+def get_previous(message):
+
+  this_client_id = queue_of_clients.index(message["source"])
+
+  if this_client_id == 0:
+    return
+
+  previous_client_id = queue_of_clients[this_client_id - 1]
+
+  print("forwarding data to previous in queue...")
+  emit("send_spec", { "spec": current_spec, "version": current_spec_version, "source": message["source"], "target": previous_client_id }, broadcast=True)
 
 
 @socket_.on("update_spec", namespace="/test")
