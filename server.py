@@ -48,8 +48,31 @@ def request_queue(message):
   emit("send_queue", { "queue": queue_of_clients })
 
 
+@app.route('/queue', methods=['GET'])
+def get_queue():
+  return {
+    "queue": queue_of_clients
+  }
+
+
+@app.route('/next/<source_id>', methods=['GET', 'POST'])
+def get_next(source_id):
+
+  message = {
+    "version": current_spec_version,
+    "spec": current_spec,
+    "source": source_id
+  }
+
+  next_in_queue(message)
+  return "ok"
+
 @socket_.on("get_next", namespace="/test")
-def get_next(message):
+def on_get_next(message):
+  return next_in_queue(message)
+
+
+def next_in_queue(message):
   global current_spec, current_spec_version
 
   this_client_index = queue_of_clients.index(message["source"])
@@ -72,8 +95,24 @@ def get_next(message):
   emit("send_spec", { "spec": current_spec, "version": current_spec_version, "source": message["source"], "target": next_client_id }, broadcast=True)
 
 
+@app.route('/previous/<source_id>', methods=['GET', 'POST'])
+def get_previous(source_id):
+
+  message = {
+    "version": current_spec_version,
+    "spec": current_spec,
+    "source": source_id
+  }
+
+  previous_in_queue(message)
+  return "ok"
+
 @socket_.on("get_previous", namespace="/test")
-def get_previous(message):
+def on_get_previous(message):
+  return previous_in_queue(message)
+
+
+def previous_in_queue(message):
   global current_spec, current_spec_version
 
   this_client_index = queue_of_clients.index(message["source"])
