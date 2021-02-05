@@ -14,7 +14,9 @@
     namespace = '/test';
     const socket = io(namespace);
 
-    socket.emit("register", {});
+    socket.emit("register", { id: Math.random() });
+
+    socket.on()
 
     socket.on('broadcast_spec', function(msg) {
       console.log(msg)
