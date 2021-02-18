@@ -1,4 +1,4 @@
-from flask import Flask, render_template, session, copy_current_request_context
+from flask import Flask, render_template, session, copy_current_request_context, jsonify
 from flask_socketio import SocketIO, emit, disconnect
 from threading import Lock
 
@@ -10,7 +10,26 @@ app.config["SECRET_KEY"] = "secret!"
 socket_ = SocketIO(app, cors_allowed_origins="*")
 
 current_spec_version = 0
-current_spec = {}
+current_spec = {
+  "$schema": "https://vega.github.io/schema/vega-lite/v4.json",
+  "description": "A simple bar chart with embedded data.",
+  "data": {
+    "values": [
+      {"a": "A", "b": 28}, {"a": "B", "b": 55}, {"a": "C", "b": 43},
+      {"a": "D", "b": 91}, {"a": "E", "b": 81}, {"a": "F", "b": 53},
+      {"a": "G", "b": 19}, {"a": "H", "b": 87}, {"a": "I", "b": 52}
+    ]
+  },
+  "mark": "bar",
+  "encoding": {
+    "x": {"field": "a", "type": "nominal", "axis": {"labelAngle": 0}},
+    "y": {"field": "b", "type": "quantitative"},
+    "color": {
+      "field": "a",
+      "type": "nominal"
+    }
+  }
+}
 
 queue_of_clients = []
 active_client_index = -1
@@ -31,6 +50,33 @@ def register(message):
   emit("broadcast_spec", { "spec": current_spec, "version": current_spec_version })
 
 
+@socket_.on("update_spec", namespace="/test")
+def update_spec(message):
+  global current_spec, current_spec_version
+
+  if message['version'] != current_spec_version:
+    print("received outdated spec ("+str(message["version"])+"). Not broadcasting.")
+    return
+
+  current_spec_version += 1
+  current_spec = message['spec']
+  print("received new spec")
+
+  emit("broadcast_spec", { "spec": current_spec, "version": current_spec_version }, broadcast=True)
+
+
+@socket_.on("disconnect_request", namespace="/test")
+def disconnect_request():
+  @copy_current_request_context
+  def can_disconnect():
+    disconnect()
+
+  session["receive_count"] = session.get("receive_count", 0) + 1
+  emit("my_response", {"data": "Disconnected!", "count": session["receive_count"]}, callback=can_disconnect)
+
+
+# QUEUE ############################################################################################
+
 @socket_.on("update_queue", namespace="/test")
 def update_queue(message):
   global queue_of_clients
@@ -50,10 +96,10 @@ def request_queue(message):
 
 @app.route('/queue', methods=['GET'])
 def get_queue():
-  return {
-    "queue": queue_of_clients
-  }
+  return jsonify(queue=queue_of_clients)
 
+
+# NEXT #############################################################################################
 
 @app.route('/next/<source_id>', methods=['GET', 'POST'])
 def get_next(source_id):
@@ -61,15 +107,17 @@ def get_next(source_id):
   message = {
     "version": current_spec_version,
     "spec": current_spec,
-    "source": source_id
+    "source": float(source_id)
   }
 
   next_in_queue(message)
   return "ok"
 
+
 @socket_.on("get_next", namespace="/test")
 def on_get_next(message):
-  return next_in_queue(message)
+  next_in_queue(message)
+  return "ok"
 
 
 def next_in_queue(message):
@@ -95,13 +143,15 @@ def next_in_queue(message):
   emit("send_spec", { "spec": current_spec, "version": current_spec_version, "source": message["source"], "target": next_client_id }, broadcast=True)
 
 
+# PREVIOUS #########################################################################################
+
 @app.route('/previous/<source_id>', methods=['GET', 'POST'])
 def get_previous(source_id):
 
   message = {
     "version": current_spec_version,
     "spec": current_spec,
-    "source": source_id
+    "source": float(source_id)
   }
 
   previous_in_queue(message)
@@ -133,30 +183,6 @@ def previous_in_queue(message):
   print("forwarding data to previous in queue with id", previous_client_id, "...")
   emit("broadcast_spec", { "spec": current_spec, "version": current_spec_version })
   emit("send_spec", { "spec": current_spec, "version": current_spec_version, "source": message["source"], "target": previous_client_id }, broadcast=True)
-
-
-@socket_.on("update_spec", namespace="/test")
-def update_spec(message):
-  global current_spec, current_spec_version
-
-  if message['version'] != current_spec_version:
-    return
-
-  current_spec_version += 1
-  current_spec = message['spec']
-  print("received new spec")
-
-  emit("broadcast_spec", { "spec": current_spec, "version": current_spec_version }, broadcast=True)
-
-
-@socket_.on("disconnect_request", namespace="/test")
-def disconnect_request():
-  @copy_current_request_context
-  def can_disconnect():
-    disconnect()
-
-  session["receive_count"] = session.get("receive_count", 0) + 1
-  emit("my_response", {"data": "Disconnected!", "count": session["receive_count"]}, callback=can_disconnect)
 
 
 if __name__ == "__main__":
