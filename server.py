@@ -64,6 +64,7 @@ def disconnect_request():
 
 @socket_.on("send_spec", namespace="/test")
 def send_spec(message):
+  print("received new spec")
   on_update_spec(message)
   return "ok"
 
