@@ -50,6 +50,18 @@ def register(message):
   emit("broadcast_spec", { "spec": current_spec, "version": current_spec_version })
 
 
+@socket_.on("disconnect_request", namespace="/test")
+def disconnect_request():
+  @copy_current_request_context
+  def can_disconnect():
+    disconnect()
+
+  session["receive_count"] = session.get("receive_count", 0) + 1
+  emit("my_response", {"data": "Disconnected!", "count": session["receive_count"]}, callback=can_disconnect)
+
+
+# UPDATE ###########################################################################################
+
 @socket_.on("send_spec", namespace="/test")
 def send_spec(message):
   on_update_spec(message)
@@ -81,16 +93,6 @@ def update():
   emit("broadcast_spec", { "spec": current_spec, "version": current_spec_version }, broadcast=True)
 
   return "ok"
-
-
-@socket_.on("disconnect_request", namespace="/test")
-def disconnect_request():
-  @copy_current_request_context
-  def can_disconnect():
-    disconnect()
-
-  session["receive_count"] = session.get("receive_count", 0) + 1
-  emit("my_response", {"data": "Disconnected!", "count": session["receive_count"]}, callback=can_disconnect)
 
 
 # QUEUE ############################################################################################
