@@ -50,19 +50,37 @@ def register(message):
   emit("broadcast_spec", { "spec": current_spec, "version": current_spec_version })
 
 
+@socket_.on("send_spec", namespace="/test")
+def send_spec(message):
+  on_update_spec(message)
+  return "ok"
+
+
 @socket_.on("update_spec", namespace="/test")
 def update_spec(message):
+  on_update_spec(message)
+
+  print("Updating all.")
+  emit("broadcast_spec", { "spec": current_spec, "version": current_spec_version }, broadcast=True)
+
+
+def on_update_spec(message):
   global current_spec, current_spec_version
 
-  if message['version'] != current_spec_version:
-    print("received outdated spec ("+str(message["version"])+"). Not broadcasting.")
-    return
-
   current_spec_version += 1
-  current_spec = message['spec']
-  print("received new spec")
 
+  if message['spec'] == None:
+    return "no"
+
+  current_spec = message['spec']
+
+
+@app.route("/update")
+def update():
+  print("Updating all.")
   emit("broadcast_spec", { "spec": current_spec, "version": current_spec_version }, broadcast=True)
+
+  return "ok"
 
 
 @socket_.on("disconnect_request", namespace="/test")
