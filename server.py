@@ -47,7 +47,7 @@ def register(message):
   print(client_id, "has connected. Sending latest version ...")
   queue_of_clients += [client_id]
 
-  emit("broadcast_spec", { "spec": current_spec, "version": current_spec_version })
+  # emit("broadcast_spec", { "spec": current_spec, "version": current_spec_version })
 
 
 @socket_.on("disconnect_request", namespace="/test")
@@ -91,7 +91,7 @@ def on_update_spec(message):
 @app.route("/update")
 def update():
   print("Updating all.")
-  emit("broadcast_spec", { "spec": current_spec, "version": current_spec_version }, broadcast=True)
+  socket_.emit("broadcast_spec", { "spec": current_spec, "version": current_spec_version }, broadcast=True, namespace='/test')
 
   return "ok"
 
@@ -144,24 +144,15 @@ def on_get_next(message):
 def next_in_queue(message):
   global current_spec, current_spec_version
 
-  this_client_index = queue_of_clients.index(message["source"])
-
-  if this_client_index == len(queue_of_clients) - 1:
-    print("source client is last in queue. No next client available.")
-    return
-
-  next_client_id = queue_of_clients[this_client_index + 1]
-
-  if message['version'] != current_spec_version:
-    return
+  next_client_id = queue_of_clients.index(message["source"])
 
   current_spec_version += 1
   current_spec = message['spec']
   print("received new spec")
 
-  print("forwarding data to next in queue with id", next_client_id, "...")
-  emit("broadcast_spec", { "spec": current_spec, "version": current_spec_version })
-  emit("send_spec", { "spec": current_spec, "version": current_spec_version, "source": message["source"], "target": next_client_id }, broadcast=True)
+  print("updating next in queue with id ", next_client_id, "...")
+  socket_.emit("broadcast_spec", { "spec": current_spec, "version": current_spec_version }, namespace="/test")
+  socket_.emit("send_spec", { "spec": current_spec, "version": current_spec_version, "source": message["source"], "target": next_client_id }, namespace="/test", broadcast=True)
 
 
 # PREVIOUS #########################################################################################
@@ -186,24 +177,15 @@ def on_get_previous(message):
 def previous_in_queue(message):
   global current_spec, current_spec_version
 
-  this_client_index = queue_of_clients.index(message["source"])
-
-  if this_client_index == 0:
-    print("source client is first in queue. No previous client available.")
-    return
-
-  if message['version'] != current_spec_version:
-    return
-
-  previous_client_id = queue_of_clients[this_client_index - 1]
+  previous_client_id = message["source"]
 
   current_spec_version += 1
   current_spec = message['spec']
   print("received new spec")
 
-  print("forwarding data to previous in queue with id", previous_client_id, "...")
-  emit("broadcast_spec", { "spec": current_spec, "version": current_spec_version })
-  emit("send_spec", { "spec": current_spec, "version": current_spec_version, "source": message["source"], "target": previous_client_id }, broadcast=True)
+  print("Updating previous in queue with id", previous_client_id, "...")
+  socket_.emit("broadcast_spec", { "spec": current_spec, "version": current_spec_version }, namespace="/test")
+  socket_.emit("send_spec", { "spec": current_spec, "version": current_spec_version, "source": message["source"], "target": previous_client_id }, namespace="/test", broadcast=True)
 
 
 if __name__ == "__main__":
