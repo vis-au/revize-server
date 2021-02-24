@@ -45,6 +45,7 @@ def index():
 def add_id_to_pool(id):
   global unused_ids
   unused_ids += [str(id)]
+  print("added new client "+str(id))
 
   return "ok"
 
@@ -65,7 +66,7 @@ def register(message):
   if len(unused_ids) == 0:
     if message["id"] is not None:
       print("Pool of unused ids is empty, using client-side id.")
-      queue_of_clients += message["id"]
+      queue_of_clients += [message["id"]]
       return
 
     print("Err: No unused ids left and no client-side id found")
