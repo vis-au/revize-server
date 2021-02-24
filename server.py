@@ -46,6 +46,8 @@ def add_id_to_pool(id):
   global unused_ids
   unused_ids += [str(id)]
 
+  return "ok"
+
 
 @app.route("/status/<id>")
 def check_status(id):
@@ -57,7 +59,7 @@ def check_status(id):
 
 @socket_.on("register", namespace="/test")
 def register(message):
-  global queue_of_clients
+  global queue_of_clients, unused_ids
 
   print("A new client registered. Assigning oldest unused id ...")
   if len(unused_ids) == 0:
