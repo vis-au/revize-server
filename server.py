@@ -9,7 +9,6 @@ app = Flask(__name__)
 app.config["SECRET_KEY"] = "secret!"
 socket_ = SocketIO(app, cors_allowed_origins="*")
 
-current_spec_version = 0
 current_spec = {
   "$schema": "https://vega.github.io/schema/vega-lite/v4.json",
   "description": "A simple bar chart with embedded data.",
@@ -31,8 +30,8 @@ current_spec = {
   }
 }
 
+unused_ids = []
 queue_of_clients = []
-active_client_index = -1
 
 
 @app.route("/")
@@ -40,14 +39,42 @@ def index():
   return render_template("index.html")
 
 
+# REGISTRATION #####################################################################################
+
+@app.route('/add/<id>', methods=['GET'])
+def add_id_to_pool(id):
+  global unused_ids
+  unused_ids += [str(id)]
+
+
+@app.route("/status/<id>")
+def check_status(id):
+  if str(id) in unused_ids:
+    return "not ready"
+  else:
+    return "ready"
+
+
 @socket_.on("register", namespace="/test")
 def register(message):
   global queue_of_clients
-  client_id = message["id"]
-  print(client_id, "has connected. Sending latest version ...")
+
+  print("A new client registered. Assigning oldest unused id ...")
+  if len(unused_ids) == 0:
+    if message["id"] is not None:
+      print("Pool of unused ids is empty, using client-side id.")
+      queue_of_clients += message["id"]
+      return
+
+    print("Err: No unused ids left and no client-side id found")
+    emit("error", { "message": "could not assign id" })
+    return
+
+  client_id = unused_ids[0]
+  del unused_ids[0]
   queue_of_clients += [client_id]
 
-  # emit("broadcast_spec", { "spec": current_spec, "version": current_spec_version })
+  emit("set_id", { "id": client_id })
 
 
 @socket_.on("disconnect_request", namespace="/test")
@@ -60,7 +87,7 @@ def disconnect_request():
   emit("my_response", {"data": "Disconnected!", "count": session["receive_count"]}, callback=can_disconnect)
 
 
-# UPDATE ###########################################################################################
+# UPDATE SPEC ######################################################################################
 
 @socket_.on("send_spec", namespace="/test")
 def send_spec(message):
@@ -73,119 +100,36 @@ def send_spec(message):
 def update_spec(message):
   on_update_spec(message)
 
-  print("Updating all.")
-  emit("broadcast_spec", { "spec": current_spec, "version": current_spec_version }, broadcast=True)
+  update_all()
 
 
 def on_update_spec(message):
-  global current_spec, current_spec_version
-
-  current_spec_version += 1
+  global current_spec
 
   if message['spec'] == None:
-    return "no"
+    return False
 
   current_spec = message['spec']
 
 
 @app.route("/update")
-def update():
+def update_all():
   print("Updating all.")
-  socket_.emit("broadcast_spec", { "spec": current_spec, "version": current_spec_version }, broadcast=True, namespace='/test')
+  socket_.emit("broadcast_spec", { "spec": current_spec }, broadcast=True, namespace='/test')
 
   return "ok"
 
 
-# QUEUE ############################################################################################
+@app.route("/update/<target_id>")
+def update_target(target_id):
+  print("Updating all.")
 
-@socket_.on("update_queue", namespace="/test")
-def update_queue(message):
-  global queue_of_clients
+  # TODO: This broadcasts the spec to every client, expecting clients to check if they are the
+  # addressed target. Message should instead only be send to one particular client to avoid
+  # client-side verification.
+  socket_.emit("send_spec", { "spec": current_spec, "target": target_id }, broadcast=True, namespace="/test")
 
-  if message["queue"] is None:
-    return
-
-  queue_of_clients = message["queue"]
-
-
-@socket_.on("request_queue", namespace="/test")
-def request_queue(message):
-  global queue_of_clients
-
-  emit("send_queue", { "queue": queue_of_clients })
-
-
-@app.route('/queue', methods=['GET'])
-def get_queue():
-  return jsonify(queue=queue_of_clients)
-
-
-# NEXT #############################################################################################
-
-@app.route('/next/<source_id>', methods=['GET', 'POST'])
-def get_next(source_id):
-
-  message = {
-    "version": current_spec_version,
-    "spec": current_spec,
-    "source": float(source_id)
-  }
-
-  next_in_queue(message)
   return "ok"
-
-
-@socket_.on("get_next", namespace="/test")
-def on_get_next(message):
-  next_in_queue(message)
-  return "ok"
-
-
-def next_in_queue(message):
-  global current_spec, current_spec_version
-
-  next_client_id = queue_of_clients.index(message["source"])
-
-  current_spec_version += 1
-  current_spec = message['spec']
-  print("received new spec")
-
-  print("updating next in queue with id ", next_client_id, "...")
-  socket_.emit("broadcast_spec", { "spec": current_spec, "version": current_spec_version }, namespace="/test")
-  socket_.emit("send_spec", { "spec": current_spec, "version": current_spec_version, "source": message["source"], "target": next_client_id }, namespace="/test", broadcast=True)
-
-
-# PREVIOUS #########################################################################################
-
-@app.route('/previous/<source_id>', methods=['GET', 'POST'])
-def get_previous(source_id):
-
-  message = {
-    "version": current_spec_version,
-    "spec": current_spec,
-    "source": float(source_id)
-  }
-
-  previous_in_queue(message)
-  return "ok"
-
-@socket_.on("get_previous", namespace="/test")
-def on_get_previous(message):
-  return previous_in_queue(message)
-
-
-def previous_in_queue(message):
-  global current_spec, current_spec_version
-
-  previous_client_id = message["source"]
-
-  current_spec_version += 1
-  current_spec = message['spec']
-  print("received new spec")
-
-  print("Updating previous in queue with id", previous_client_id, "...")
-  socket_.emit("broadcast_spec", { "spec": current_spec, "version": current_spec_version }, namespace="/test")
-  socket_.emit("send_spec", { "spec": current_spec, "version": current_spec_version, "source": message["source"], "target": previous_client_id }, namespace="/test", broadcast=True)
 
 
 if __name__ == "__main__":
