@@ -67,6 +67,8 @@ def register(message):
     if message["id"] is not None:
       print("Pool of unused ids is empty, using client-side id.")
       queue_of_clients += [message["id"]]
+      print("sending latest spec ...")
+      emit("send_spec", { "spec": current_spec, "target": message["id"] })
       return
 
     print("Err: No unused ids left and no client-side id found")
