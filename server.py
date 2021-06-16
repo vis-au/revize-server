@@ -41,23 +41,6 @@ def index():
 
 # REGISTRATION #####################################################################################
 
-@app.route('/add/<id>', methods=['GET'])
-def add_id_to_pool(id):
-  global unused_ids
-  unused_ids += [str(id)]
-  print("added new client "+str(id))
-
-  return "ok"
-
-
-@app.route("/status/<id>")
-def check_status(id):
-  if str(id) in unused_ids:
-    return "not ready"
-  else:
-    return "ready"
-
-
 @socket_.on("register", namespace="/test")
 def register(message):
   global queue_of_clients, unused_ids
@@ -90,6 +73,24 @@ def disconnect_request():
 
   session["receive_count"] = session.get("receive_count", 0) + 1
   emit("my_response", {"data": "Disconnected!", "count": session["receive_count"]}, callback=can_disconnect)
+
+
+@app.route('/add/<id>', methods=['GET'])
+def add_id_to_pool(id):
+  global unused_ids
+  unused_ids += [str(id)]
+  print("added new client "+str(id))
+
+  return "ok"
+
+
+@app.route("/status/<id>")
+def check_status(id):
+  if str(id) in unused_ids:
+    return "not ready"
+  else:
+    return "ready"
+
 
 
 # UPDATE SPEC ######################################################################################

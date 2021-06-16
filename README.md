@@ -36,6 +36,16 @@ HTTP endpoints have the HTTP prefix, websocket endpoints are not particularly ma
 The following endpoints allow to set up the toolchain, before any Vega-Lite specifications can be exchanged.
 
 
+#### register ```{ id }```
+Registers a new client in the workflow and shares the latest version and the latest Vega-lite specification with that client.
+
+* The ```id``` property must contain a number, for example drawn from a random sample.
+
+#### disconnect_request
+Unregisters a client from the workflow.
+This endpoint takes has no parameters.
+
+
 #### HTTP:/add/```id```
 Informs the server about a tool ```id``` that will register in the future.
 By using this endpoint for multiple tools, the toolchain can be configured without having to start each tool.
@@ -47,15 +57,6 @@ Retrieves the alive-status of a particular tool, by checking whether a client us
 If a client has registered, the server responds with ```ready```, and if not, the server responds with ```not ready```.
 
 * The ```id``` property must contain a number, for example drawn from a random sample.
-
-#### register ```{ id }```
-Registers a new client in the workflow and shares the latest version and the latest Vega-lite specification with that client.
-
-* The ```id``` property must contain a number, for example drawn from a random sample.
-
-#### disconnect_request
-Unregisters a client from the workflow.
-This endpoint takes has no parameters.
 
 
 ### Exchanging Specifications
