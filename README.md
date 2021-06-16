@@ -1,5 +1,5 @@
 # RevizeServer
-This directory contains the code for a websocket server, which can be used to distribute [Vega-lite](https://vega.github.io/vega-lite) specifications in realtime across multiple, parallel [revize](https://www.npmjs.com/package/revize)-enabled visualization clients.
+This repository contains the code for a websocket server, which can be used to distribute [Vega-lite](https://vega.github.io/vega-lite) specifications in realtime across multiple, parallel [revize](https://www.npmjs.com/package/revize)-enabled visualization clients.
 
 Clients that wish to connect to this server need to implement the websocket interface of [revize](https://www.npmjs.com/package/revize) version 1.0.4 or higher.
 
