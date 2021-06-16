@@ -79,4 +79,4 @@ This endpoint takes has no parameters.
 #### HTTP:/update/```target_id```
 Sends the Vega-Lite specification that the server received the latest to the tool registered under the given id.
 
-* ```id``` must contain a number, for example drawn from a random sample.
+* ```target_id``` must contain a number, for example drawn from a random sample.
